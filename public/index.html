@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Voice Agent</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="bar">
+        <div class="brand">
+          <img id="logo" class="logo" src="logo.png" alt="" hidden />
+          <div>
+            <h1 id="agent-name">Voice Agent</h1>
+            <p id="agent-subtitle" class="muted" hidden></p>
+          </div>
+        </div>
+        <div class="bar-right">
+          <span id="status" class="status idle">Idle</span>
+          <button
+            id="transcript-toggle"
+            class="ghost"
+            type="button"
+            aria-expanded="false"
+            aria-controls="transcript"
+          >
+            Transcript
+          </button>
+          <button id="mute" class="ghost" type="button" hidden>Mute</button>
+          <button id="toggle" class="primary" type="button">Start</button>
+        </div>
+      </header>
+
+      <section class="stage">
+        <div id="avatar" class="avatar"></div>
+
+        <div id="state" class="state" hidden>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="state-label">Listening</span>
+        </div>
+
+        <div id="caption" class="caption" hidden>
+          <p id="caption-user" class="caption-user" hidden></p>
+          <p id="caption-text" class="caption-text"></p>
+        </div>
+
+        <div id="placeholder" class="placeholder">
+          <h2>Press <strong>Start</strong> and allow microphone access.</h2>
+        </div>
+      </section>
+
+      <section class="transcript" id="transcript" aria-live="polite" hidden></section>
+    </main>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
