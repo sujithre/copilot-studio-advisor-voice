@@ -16,7 +16,13 @@
 [CmdletBinding()]
 param(
     # Output path for the deployment package.
-    [string] $Destination = "$PSScriptRoot\app.zip"
+    [string] $Destination = "$PSScriptRoot\app.zip",
+
+    # Bundle node_modules into the package. Required for locked-down App Service
+    # environments with no outbound access to the npm registry (the server-side
+    # 'npm install' fails there). Run 'npm ci' first so node_modules exists, and
+    # deploy with SCM_DO_BUILD_DURING_DEPLOYMENT=false + startup 'node server.js'.
+    [switch] $IncludeNodeModules
 )
 
 $ErrorActionPreference = 'Stop'
@@ -30,6 +36,13 @@ $items = @('package.json', 'package-lock.json', 'server.js', 'README.md') +
 
 foreach ($item in $items) {
     if (-not (Test-Path (Join-Path $root $item))) { throw "Missing file: $item" }
+}
+
+if ($IncludeNodeModules) {
+    $nm = Join-Path $root 'node_modules'
+    if (-not (Test-Path $nm)) { throw "node_modules not found. Run 'npm ci' first." }
+    $items += (Get-ChildItem $nm -Recurse -File |
+        ForEach-Object { $_.FullName.Substring($root.Length + 1) })
 }
 
 Remove-Item $Destination -Force -ErrorAction SilentlyContinue
