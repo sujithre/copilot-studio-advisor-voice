@@ -5,3 +5,8 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 *.zip
+
+# Internal Novartis source material - never publish
+knowldge/
+Html/
+.playwright-mcp/

@@ -3,56 +3,139 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Voice Agent</title>
+    <title>AI Advisor</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app">
-      <header class="bar">
-        <div class="brand">
-          <img id="logo" class="logo" src="logo.png" alt="" hidden />
-          <div>
-            <h1 id="agent-name">Voice Agent</h1>
-            <p id="agent-subtitle" class="muted" hidden></p>
+    <div class="shell">
+      <nav class="rail" aria-label="Workspace">
+        <button class="rail-btn active" type="button" aria-label="Session">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v8M8 12h8" /></svg>
+        </button>
+        <button class="rail-btn" type="button" aria-label="History">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>
+        </button>
+        <button class="rail-btn" type="button" aria-label="Insights">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6" /></svg>
+        </button>
+      </nav>
+
+      <div class="frame">
+        <header class="topbar">
+          <div class="brand">
+            <img id="logo" class="logo" src="logo-color.png" alt="Novartis" hidden />
+            <div class="titles">
+              <h1 id="agent-name">AI Advisor</h1>
+              <p id="agent-subtitle" class="subtitle" hidden></p>
+            </div>
           </div>
-        </div>
-        <div class="bar-right">
-          <span id="status" class="status idle">Idle</span>
-          <button
-            id="transcript-toggle"
-            class="ghost"
-            type="button"
-            aria-expanded="false"
-            aria-controls="transcript"
-          >
-            Transcript
-          </button>
-          <button id="mute" class="ghost" type="button" hidden>Mute</button>
-          <button id="toggle" class="primary" type="button">Start</button>
-        </div>
-      </header>
 
-      <section class="stage">
-        <div id="avatar" class="avatar"></div>
+          <div class="topbar-right">
+            <span class="pill secure"><span class="pip" aria-hidden="true"></span>Secure session · EU region</span>
+            <span class="pill">English</span>
+            <span class="me" aria-hidden="true">SG</span>
+          </div>
+        </header>
 
-        <div id="state" class="state" hidden>
-          <span class="dot" aria-hidden="true"></span>
-          <span id="state-label">Listening</span>
-        </div>
+        <main class="grid">
+          <section class="stage-card">
+            <div class="stage">
+              <span id="status" class="status idle">Idle</span>
+              <span class="chip-hd">LIVE HD</span>
 
-        <div id="caption" class="caption" hidden>
-          <p id="caption-user" class="caption-user" hidden></p>
-          <p id="caption-text" class="caption-text"></p>
-        </div>
+              <div id="avatar" class="avatar"></div>
 
-        <div id="placeholder" class="placeholder">
-          <h2>Press <strong>Start</strong> and allow microphone access.</h2>
-        </div>
-      </section>
+              <div id="state" class="state" hidden>
+                <span class="dot" aria-hidden="true"></span>
+                <span id="state-label">Listening</span>
+              </div>
 
-      <section class="transcript" id="transcript" aria-live="polite" hidden></section>
-    </main>
+              <button id="fullscreen" class="expand" type="button" aria-label="Full screen">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+              </button>
+            </div>
+          </section>
+
+          <section class="convo">
+            <p class="eyebrow">Good morning</p>
+
+            <div class="headline">
+              <h2>Build <em>better agents</em> with Copilot Studio best practices</h2>
+            </div>
+
+            <!-- app.js toggles this; the headline above stays put. -->
+            <div id="placeholder" class="placeholder" hidden></div>
+
+            <div id="caption" class="caption" hidden>
+              <span class="caption-label">Live caption</span>
+              <p id="caption-user" class="caption-user" hidden></p>
+              <p id="caption-text" class="caption-text"></p>
+            </div>
+
+            <div class="wave" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+
+            <div class="controls">
+              <button id="mute" class="ctl mic" type="button" hidden>Mic on</button>
+              <button id="transcript-toggle" class="ctl" type="button" aria-expanded="false" aria-controls="transcript">
+                CC Captions
+              </button>
+              <button id="fullscreen-btn" class="ctl" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+                <span id="fullscreen-label">Full screen</span>
+              </button>
+              <button id="toggle" class="ctl end" type="button">Start session</button>
+            </div>
+
+            <section class="transcript" id="transcript" aria-live="polite" hidden></section>
+          </section>
+
+          <aside class="insights">
+            <div class="panel">
+              <header class="panel-head">Session insights</header>
+              <div class="kpis">
+                <div class="kpi">
+                  <strong id="kpi-turns">0</strong>
+                  <span>Replies</span>
+                </div>
+                <div class="kpi">
+                  <strong id="kpi-latency">—</strong>
+                  <span>Avg response</span>
+                </div>
+                <div class="kpi">
+                  <strong id="kpi-sources">0</strong>
+                  <span>Sources used</span>
+                </div>
+                <div class="kpi">
+                  <strong id="kpi-time">00:00</strong>
+                  <span>Session time</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <header class="panel-head">Avatar preferences</header>
+              <label class="pref">
+                <span>Voice responses</span>
+                <input type="checkbox" checked disabled />
+                <i class="sw" aria-hidden="true"></i>
+              </label>
+              <label class="pref">
+                <span>Live captions</span>
+                <input id="pref-captions" type="checkbox" checked />
+                <i class="sw" aria-hidden="true"></i>
+              </label>
+            </div>
+          </aside>
+        </main>
+      </div>
+    </div>
 
     <script src="app.js" type="module"></script>
+    <script src="ui.js" type="module"></script>
   </body>
 </html>

@@ -570,7 +570,7 @@ function fail(message) {
 function setMuted(next) {
   micMuted = next;
   micStream?.getAudioTracks().forEach((track) => (track.enabled = !next));
-  els.mute.textContent = next ? 'Unmute' : 'Mute';
+  els.mute.textContent = next ? 'Mic off' : 'Mic on';
   els.mute.classList.toggle('muted', next);
   els.mute.setAttribute('aria-pressed', String(next));
 
@@ -603,7 +603,7 @@ async function start() {
   ws.onopen = () => {
     running = true;
     els.toggle.disabled = false;
-    els.toggle.textContent = 'Stop';
+    els.toggle.textContent = 'End session';
     els.toggle.classList.add('stop');
     els.mute.hidden = false;
     setMuted(false);
