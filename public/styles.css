@@ -161,7 +161,8 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.25fr) 232px;
+  /* The avatar is the main attraction, so it gets the most width. */
+  grid-template-columns: minmax(320px, 1.45fr) minmax(0, 1fr) 232px;
   gap: 12px;
 }
 
@@ -182,6 +183,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 
 /* ------------------------------------------------------------------ stage */
@@ -211,6 +213,17 @@ body {
   height: 100%;
   /* Standing presenters sit in a 16:9 frame with wide empty margins, so fill the
      block and crop the sides. Anchored high to keep the face in view. */
+  object-fit: cover;
+  object-position: center top;
+}
+
+/* Stand-in shown until the live stream arrives. A local image costs nothing,
+   where a live avatar bills per second from the moment it connects. */
+.poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center top;
 }
@@ -267,31 +280,6 @@ body {
   color: var(--muted);
 }
 
-.expand {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 3;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.86);
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.expand svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-}
-
 /* ----------------------------------------------------------- conversation */
 
 .eyebrow {
@@ -313,14 +301,18 @@ body {
 
 .headline h2 {
   margin: 0;
-  font-size: 1.95rem;
-  line-height: 1.22;
+  /* Deliberately quieter than the avatar: this used to be the loudest thing on
+     the page and pulled attention off the stage. */
+  font-size: 1.45rem;
+  line-height: 1.3;
   font-weight: 400;
   letter-spacing: -0.01em;
+  color: var(--muted);
 }
 
 .headline em {
   font-style: normal;
+  color: var(--text);
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
@@ -408,7 +400,7 @@ body:has(.status.live) .wave span {
   font-weight: 600;
 }
 
-/* app.js swaps this label to 'Unmute' and adds .muted when the mic is off. */
+/* app.js swaps this label to 'Resume mic' and adds .muted when the mic is paused. */
 .ctl.mic.muted {
   border-color: var(--line);
   box-shadow: none;
@@ -680,7 +672,10 @@ body:has(.status.live) .wave span {
 
 /* -------------------------------------------------------------- captions */
 
+/* Every box below the headline is a fixed size. Text streams in a line at a
+   time, and anything that resized with it dragged the controls up and down. */
 .caption {
+  flex: 0 0 auto;
   padding: 15px 18px;
   border-left: 3px solid var(--accent);
   background: var(--stage);
@@ -703,18 +698,25 @@ body.no-captions .caption {
 
 .caption-user {
   margin: 0 0 6px;
+  /* One line, always: it echoes the question, and wrapping it would move
+     everything underneath. */
+  height: 1.35em;
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 0.82rem;
   color: var(--muted);
 }
 
-.caption-user::before {
+.caption-user:not(:empty)::before {
   content: 'You: ';
 }
 
 .caption-text {
   margin: 0;
-  /* Three lines tall; JS keeps it scrolled to the newest text. */
-  max-height: 4.4em;
+  /* Three lines, always; JS keeps it scrolled to the newest text. */
+  height: 4.35em;
   overflow: hidden;
   font-size: 0.95rem;
   line-height: 1.45;
@@ -723,7 +725,7 @@ body.no-captions .caption {
 
 @media (max-width: 1100px) {
   .grid {
-    grid-template-columns: 1fr 1.2fr;
+    grid-template-columns: 1.45fr 1fr;
   }
 
   .insights {
@@ -731,17 +733,21 @@ body.no-captions .caption {
   }
 
   .headline h2 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 }
 
 /* ------------------------------------------------------------- transcript */
 
 .transcript {
+  /* Fixed height rather than max-height: growing a line at a time moved
+     everything above it. Allowed to shrink so it cannot overrun the card. */
   flex: 0 1 auto;
+  height: 26vh;
+  min-height: 90px;
   margin-top: 16px;
-  max-height: 26vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--stage);
   border-radius: 12px;
   padding: 12px;

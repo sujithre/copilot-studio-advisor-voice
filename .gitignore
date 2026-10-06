@@ -10,3 +10,7 @@ Thumbs.db
 knowldge/
 Html/
 .playwright-mcp/
+# Agent instructions carry internal policy, intranet links and named contacts.
+agent/instructions.voice.md
+agent/instructions.md
+agent/*.local.md

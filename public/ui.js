@@ -24,7 +24,6 @@ function toggleFullscreen() {
   else frame?.requestFullscreen?.();
 }
 
-document.getElementById('fullscreen')?.addEventListener('click', toggleFullscreen);
 document.getElementById('fullscreen-btn')?.addEventListener('click', toggleFullscreen);
 
 // Covers Esc and F11 as well as the buttons.

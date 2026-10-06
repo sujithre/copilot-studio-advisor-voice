@@ -37,6 +37,12 @@ param(
     [ValidateSet('photo', 'video', 'none')][string] $AvatarKind = 'photo',
     [string] $AvatarCharacter = 'camila',
     [string] $AvatarStyle = '',
+
+    # Enforced on the agent's answers; does not touch speech recognition.
+    [string] $ReplyLanguage = 'en-US',
+    # Comma-separated product names to bias recognition towards. Keep it short.
+    [string] $PhraseList = '',
+
     [string] $ApiVersion = '2025-10-01',
     [string] $Sku = 'B1'
 )
@@ -126,6 +132,8 @@ az webapp config appsettings set -g $rg -n $WebAppName -o none --settings `
     AVATAR_CHARACTER="$AvatarCharacter" `
     AVATAR_STYLE="$AvatarStyle" `
     TURN_DETECTION_TYPE='azure_semantic_vad' `
+    REPLY_LANGUAGE="$ReplyLanguage" `
+    PHRASE_LIST="$PhraseList" `
     GREET_ON_CONNECT='true'
 
 Write-Host "==> Granting the managed identity access to Foundry" -ForegroundColor Cyan

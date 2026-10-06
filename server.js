@@ -168,6 +168,14 @@ function buildInterimResponse() {
   };
 }
 
+// Biases speech recognition towards distinctive product names. Keep the list
+// short: including ordinary words ('agent', 'connector') skews recognition of
+// everything else. Off unless PHRASE_LIST is set.
+const PHRASE_LIST = (process.env.PHRASE_LIST || '')
+  .split(',')
+  .map((phrase) => phrase.trim())
+  .filter(Boolean);
+
 const clientConfig = {
   // Nothing about the Foundry project leaks to the browser unless it is set
   // explicitly here, so the demo can carry a friendly title instead.
@@ -176,12 +184,19 @@ const clientConfig = {
   greetOnConnect: String(process.env.GREET_ON_CONNECT || 'true') === 'true',
   greeting: process.env.GREETING_TEXT || '',
   showTranscript: String(process.env.SHOW_TRANSCRIPT || 'true') === 'true',
+  // Language the agent must answer in. Enforced as a conversation instruction
+  // rather than by pinning the recognition locale, which costs accuracy on
+  // accented speech. Blank to let the agent follow whatever it thinks it heard.
+  replyLanguage: (process.env.REPLY_LANGUAGE ?? 'en-US').trim(),
   session: {
     modalities: ['text', 'audio'],
     input_audio_sampling_rate: 24000,
     input_audio_noise_reduction: { type: 'azure_deep_noise_suppression' },
     input_audio_echo_cancellation: { type: 'server_echo_cancellation' },
-    input_audio_transcription: { model: 'azure-speech' },
+    input_audio_transcription: {
+      model: 'azure-speech',
+      ...(PHRASE_LIST.length ? { phrase_list: PHRASE_LIST } : {}),
+    },
     turn_detection: {
       type: process.env.TURN_DETECTION_TYPE || 'azure_semantic_vad',
       // Dead time before the agent is even asked. Semantic VAD also weighs
@@ -326,4 +341,6 @@ wss.on('connection', async (browserWs) => {
 server.listen(PORT, () => {
   console.log(`Listening on http://localhost:${PORT}`);
   console.log(`Proxying to ${buildUpstreamUrl().replace(/Authorization=[^&]*/, '')}`);
+  // Otherwise the first session of the day pays for the Entra round trip.
+  getAccessToken().catch((err) => console.error('Token pre-warm failed:', err.message));
 });

@@ -8,6 +8,7 @@ const els = {
   toggle: document.getElementById('toggle'),
   status: document.getElementById('status'),
   avatar: document.getElementById('avatar'),
+  poster: document.getElementById('avatar-poster'),
   placeholder: document.getElementById('placeholder'),
   transcript: document.getElementById('transcript'),
   transcriptToggle: document.getElementById('transcript-toggle'),
@@ -38,6 +39,7 @@ let kickedOff = false;
 let interimArmed = false;
 let micMuted = false;
 let transcriptEnabled = true;
+let posterAvailable = false;
 
 let mediaSource = null;
 let sourceBuffer = null;
@@ -48,6 +50,13 @@ let videoQueue = [];
 function setStatus(text, kind = 'idle') {
   els.status.textContent = text;
   els.status.className = `status ${kind}`;
+}
+
+// Startup is a chain of round trips. Logging each milestone means a slow one can
+// be identified instead of guessed at.
+let startedAt = 0;
+function mark(label) {
+  if (startedAt) console.info(`[startup] ${label}: ${Math.round(performance.now() - startedAt)}ms`);
 }
 
 // Conversation state shown over the avatar: listening | thinking | speaking.
@@ -108,9 +117,10 @@ function showCaption(text) {
   els.captionText.scrollTop = els.captionText.scrollHeight;
 }
 
+// The element keeps its box even when empty: collapsing it would reflow
+// everything below the caption on every turn.
 function showUserCaption(text) {
   if (!transcriptEnabled) return;
-  els.captionUser.hidden = !text;
   els.captionUser.textContent = text || '';
 }
 
@@ -211,6 +221,7 @@ async function startAvatar(iceServers) {
     media.playsInline = true;
     if (event.track.kind === 'video') {
       els.placeholder.hidden = true;
+      els.poster.hidden = true;
     } else {
       media.hidden = true;
     }
@@ -227,6 +238,7 @@ async function startAvatar(iceServers) {
   const offer = await peer.createOffer();
   await peer.setLocalDescription(offer);
   await waitForIceGathering(peer);
+  mark('ICE gathered');
 
   send({
     type: 'session.avatar.connect',
@@ -255,6 +267,7 @@ function waitForIceGathering(pc) {
 async function acceptAvatarAnswer(serverSdpBase64) {
   const answer = JSON.parse(atob(serverSdpBase64));
   await peer.setRemoteDescription(answer);
+  mark('live');
   setStatus('Live', 'live');
 }
 
@@ -294,6 +307,7 @@ function startWebSocketAvatar() {
 
   els.avatar.appendChild(video);
   els.placeholder.hidden = true;
+  els.poster.hidden = true;
   setStatus('Live', 'live');
 }
 
@@ -421,6 +435,7 @@ async function startMicrophone() {
 function handleServerEvent(event) {
   switch (event.type) {
     case 'session.updated': {
+      mark('session ready');
       const avatar = config.session.avatar;
       if (!avatar) {
         setStatus('Live', 'live');
@@ -526,11 +541,41 @@ function greet() {
   send({ type: 'response.create' });
 }
 
+// The agent mirrors whatever language it thinks it heard, and auto-detect
+// transcription sometimes decides English is Chinese. This is the only lever on
+// an agent whose instructions live in Foundry.
+function lockLanguage() {
+  const code = config.replyLanguage;
+  if (!code) return;
+
+  let name = code;
+  try {
+    name = new Intl.DisplayNames(['en'], { type: 'language' }).of(code) || code;
+  } catch {
+    /* older browsers fall back to the raw code */
+  }
+
+  send({
+    type: 'conversation.item.create',
+    item: {
+      type: 'message',
+      role: 'system',
+      content: [
+        {
+          type: 'input_text',
+          text: `Always respond in ${name}, and only in ${name}. This applies for the entire conversation. Even if a user message appears to be in another language, or the transcription looks like another language, still answer in ${name}. Never switch languages.`,
+        },
+      ],
+    },
+  });
+}
+
 // session.updated can arrive more than once; the opening turn must only fire once.
 function kickOff() {
   if (kickedOff) return;
   kickedOff = true;
 
+  lockLanguage();
   if (config.greetOnConnect) greet();
 }
 
@@ -570,7 +615,9 @@ function fail(message) {
 function setMuted(next) {
   micMuted = next;
   micStream?.getAudioTracks().forEach((track) => (track.enabled = !next));
-  els.mute.textContent = next ? 'Mic off' : 'Mic on';
+  // The label names the action, not the state: "Mic on" read as a button you
+  // press in order to be heard, which muted you instead.
+  els.mute.textContent = next ? 'Resume mic' : 'Pause mic';
   els.mute.classList.toggle('muted', next);
   els.mute.setAttribute('aria-pressed', String(next));
 
@@ -586,26 +633,32 @@ async function start() {
   els.toggle.disabled = true;
   els.avatar.replaceChildren();
   clearCaptions();
-  setStatus('Waiting for mic…');
-
-  try {
-    await startMicrophone();
-  } catch (err) {
-    els.toggle.disabled = false;
-    fail(err.message);
-    return;
-  }
-
+  startedAt = performance.now();
   setStatus('Connecting…');
+
+  // The socket and the microphone are independent, and the permission prompt is
+  // the slowest part of either, so neither waits for the other.
+  const micReady = startMicrophone();
+  micReady.then(
+    () => mark('microphone ready'),
+    () => {
+      /* reported below; this only stops an unhandled rejection */
+    }
+  );
+
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${scheme}://${location.host}/realtime`);
 
   ws.onopen = () => {
+    mark('socket open');
     running = true;
     els.toggle.disabled = false;
     els.toggle.textContent = 'End session';
     els.toggle.classList.add('stop');
-    els.mute.hidden = false;
+    els.mute.disabled = false;
+    // Shown empty from the start, so the first caption does not shove the
+    // controls down the page.
+    if (transcriptEnabled) els.caption.hidden = false;
     setMuted(false);
     setStatus('Negotiating…');
     interimArmed = !config.greetOnConnect;
@@ -626,6 +679,12 @@ async function start() {
     if (running) log('Session closed.', 'system');
     stop();
   };
+
+  try {
+    await micReady;
+  } catch (err) {
+    fail(err.message);
+  }
 }
 
 // Copies the frame currently on screen into a canvas. The live stream goes black
@@ -686,9 +745,11 @@ function stop() {
 
   els.avatar.replaceChildren(...(still ? [still] : []));
   els.placeholder.hidden = Boolean(still);
+  // Fall back to the poster only when there is no closing frame to hold.
+  els.poster.hidden = Boolean(still) || !posterAvailable;
   micMuted = false;
-  els.mute.hidden = true;
-  els.mute.textContent = 'Mute';
+  els.mute.disabled = true;
+  els.mute.textContent = 'Pause mic';
   els.mute.classList.remove('muted');
   els.toggle.disabled = false;
   els.toggle.textContent = 'Start';
@@ -713,6 +774,14 @@ window.addEventListener('beforeunload', stop);
 // The brand asset is deployment-specific and may simply not be there.
 if (els.logo.complete && els.logo.naturalWidth) els.logo.hidden = false;
 else els.logo.addEventListener('load', () => (els.logo.hidden = false));
+
+// Same for the idle avatar still: shown only if public/avatar-idle.jpg exists.
+function revealPoster() {
+  posterAvailable = true;
+  if (!running) els.poster.hidden = false;
+}
+if (els.poster.complete && els.poster.naturalWidth) revealPoster();
+else els.poster.addEventListener('load', revealPoster);
 
 (async function init() {
   try {

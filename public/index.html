@@ -43,16 +43,13 @@
               <span id="status" class="status idle">Idle</span>
               <span class="chip-hd">LIVE HD</span>
 
+              <img id="avatar-poster" class="poster" src="avatar-idle.jpg" alt="" hidden />
               <div id="avatar" class="avatar"></div>
 
               <div id="state" class="state" hidden>
                 <span class="dot" aria-hidden="true"></span>
                 <span id="state-label">Listening</span>
               </div>
-
-              <button id="fullscreen" class="expand" type="button" aria-label="Full screen">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
-              </button>
             </div>
           </section>
 
@@ -60,7 +57,7 @@
             <p class="eyebrow">Good morning</p>
 
             <div class="headline">
-              <h2>Build <em>better agents</em> with Copilot Studio best practices</h2>
+              <h2>Guidance across your <em>approved AI tools</em></h2>
             </div>
 
             <!-- app.js toggles this; the headline above stays put. -->
@@ -68,7 +65,7 @@
 
             <div id="caption" class="caption" hidden>
               <span class="caption-label">Live caption</span>
-              <p id="caption-user" class="caption-user" hidden></p>
+              <p id="caption-user" class="caption-user"></p>
               <p id="caption-text" class="caption-text"></p>
             </div>
 
@@ -80,7 +77,8 @@
             </div>
 
             <div class="controls">
-              <button id="mute" class="ctl mic" type="button" hidden>Mic on</button>
+              <!-- Disabled rather than hidden: appearing mid-session re-wraps the row. -->
+              <button id="mute" class="ctl mic" type="button" disabled>Pause mic</button>
               <button id="transcript-toggle" class="ctl" type="button" aria-expanded="false" aria-controls="transcript">
                 CC Captions
               </button>
