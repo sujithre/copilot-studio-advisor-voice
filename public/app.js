@@ -44,6 +44,11 @@ let posterAvailable = false;
 let mediaSource = null;
 let sourceBuffer = null;
 let videoQueue = [];
+let avatarVideo = null;
+let avatarAnalyser = null;
+let avatarMeterTimer = null;
+let avatarMeterActive = false;
+let avatarQuietSince = 0;
 
 // ---------------------------------------------------------------- utilities
 
@@ -84,6 +89,78 @@ function setConvState(next) {
   els.state.hidden = false;
   els.state.className = `state ${next}`;
   els.stateLabel.textContent = STATE_LABELS[next];
+}
+
+// A websocket avatar plays on its own timeline, independent of the service
+// events: response.done lands while the avatar is still mid-sentence. The only
+// signal that matches what the viewer hears is the sound actually coming out of
+// the avatar, so the badge is driven off its audio energy. Until that meter is
+// running (e.g. a browser without captureStream), the service events drive it.
+const AVATAR_SPEAK_RMS = 0.01;
+const AVATAR_QUIET_MS = 350;
+
+// The badge must track what the viewer actually hears, so it is driven off the
+// avatar's audio level. There are two avatar transports with different audio
+// sources: WebRTC delivers a remote MediaStream (tap it directly, it keeps
+// playing through its own element) and websocket delivers a muxed <video>
+// (its element source must be re-routed to the speakers or it falls silent).
+function beginAvatarMeter(sourceNode, { routeToSpeakers }) {
+  avatarAnalyser = audioCtx.createAnalyser();
+  avatarAnalyser.fftSize = 512;
+  sourceNode.connect(avatarAnalyser);
+  if (routeToSpeakers) avatarAnalyser.connect(audioCtx.destination);
+  const buf = new Float32Array(avatarAnalyser.fftSize);
+  avatarMeterActive = true;
+  console.info(`[avatar] voice meter active; ctx ${audioCtx.sampleRate}Hz`);
+
+  avatarMeterTimer = setInterval(() => {
+    if (!running || micMuted || !avatarAnalyser) return;
+    avatarAnalyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i += 1) sum += buf[i] * buf[i];
+    const rms = Math.sqrt(sum / buf.length);
+    if (rms > AVATAR_SPEAK_RMS) {
+      avatarQuietSince = 0;
+      setConvState('speaking');
+    } else if (convState === 'speaking') {
+      if (!avatarQuietSince) avatarQuietSince = performance.now();
+      else if (performance.now() - avatarQuietSince > AVATAR_QUIET_MS) setConvState('listening');
+    }
+  }, 80);
+}
+
+// Websocket avatar: audio is muxed into the <video> element.
+function startAvatarVoiceMeterFromElement(video) {
+  if (!audioCtx || avatarMeterActive) return;
+  let src;
+  try {
+    src = audioCtx.createMediaElementSource(video);
+  } catch {
+    console.info('[avatar] element meter unavailable; using service events for state');
+    return;
+  }
+  beginAvatarMeter(src, { routeToSpeakers: true });
+}
+
+// WebRTC avatar: audio arrives as a remote MediaStream track.
+function startAvatarVoiceMeterFromStream(stream) {
+  if (!audioCtx || avatarMeterActive) return;
+  let src;
+  try {
+    src = audioCtx.createMediaStreamSource(stream);
+  } catch {
+    console.info('[avatar] stream meter unavailable; using service events for state');
+    return;
+  }
+  beginAvatarMeter(src, { routeToSpeakers: false });
+}
+
+function stopAvatarVoiceMeter() {
+  clearInterval(avatarMeterTimer);
+  avatarMeterTimer = null;
+  avatarAnalyser = null;
+  avatarMeterActive = false;
+  avatarQuietSince = 0;
 }
 
 // Agent replies are authored for reading, not for a caption bar: strip markdown
@@ -224,6 +301,7 @@ async function startAvatar(iceServers) {
       els.poster.hidden = true;
     } else {
       media.hidden = true;
+      startAvatarVoiceMeterFromStream(event.streams[0]);
     }
     els.avatar.appendChild(media);
     media.play().catch(() => {
@@ -291,6 +369,8 @@ function startWebSocketAvatar() {
   video.autoplay = true;
   video.playsInline = true;
   video.addEventListener('canplay', () => video.play().catch(() => {}));
+  video.addEventListener('playing', () => startAvatarVoiceMeterFromElement(video), { once: true });
+  avatarVideo = video;
 
   mediaSource = new MediaSource();
   video.src = URL.createObjectURL(mediaSource);
@@ -332,6 +412,8 @@ function handleVideoChunk(base64) {
 
 function teardownWebSocketAvatar() {
   videoQueue = [];
+  avatarVideo = null;
+  stopAvatarVoiceMeter();
   if (mediaSource && mediaSource.readyState === 'open' && sourceBuffer && !sourceBuffer.updating) {
     try {
       mediaSource.endOfStream();
@@ -494,19 +576,21 @@ function handleServerEvent(event) {
         assistantLine.textContent = text;
         els.transcript.scrollTop = els.transcript.scrollHeight;
         showCaption(text);
-        setConvState('speaking');
+        if (!avatarMeterActive) setConvState('speaking');
       }
       break;
 
     case 'response.done':
       assistantLine = null;
       assistantRaw = '';
-      setConvState('listening');
+      // When the voice meter is active it owns the flip back to listening (once
+      // the avatar actually falls silent); otherwise fall back to this event.
+      if (!avatarMeterActive) setConvState('listening');
       armInterimResponses();
       break;
 
     case 'response.audio.delta':
-      setConvState('speaking');
+      if (!avatarMeterActive) setConvState('speaking');
       if (!config.session.avatar && event.delta) {
         const bytes = base64ToBytes(event.delta);
         player?.play(new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2));
